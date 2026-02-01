@@ -1,0 +1,15 @@
+[project]
+name = "eai-project"
+version = "0.1.0"
+description = "Engineering Artificial Intelligence course project"
+readme = "README.md"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+  "numpy",
+  "matplotlib",
+  "pandas",
+  "scikit-learn",
+  "torch",
+  "torchvision",
+  "torchaudio",
+]
