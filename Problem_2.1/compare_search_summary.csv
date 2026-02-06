@@ -1,0 +1,4 @@
+algo,mean_path_length,mean_nodes_expanded,mean_max_frontier_size,mean_time_sec,std_path_length,std_nodes_expanded,std_time_sec
+ucs,13.3,45.8,7.4,0.00011738000030163676,5.74543296888929,17.010584939971935,4.472417558842671e-05
+astar,13.3,25.0,8.9,7.23499950254336e-05,5.74543296888929,12.190159966136621,3.6629427400899826e-05
+optimality_check,,,,,,,10/10
