@@ -99,6 +99,3 @@ threshold = obj.get('threshold', 0.5)
 # probs = model.predict_proba(X_sample)[:,1]
 # preds = (probs >= threshold).astype(int)
 ```
-
-If you want, I can run `inspect_model.py` now and paste the exact output into this README.
-
