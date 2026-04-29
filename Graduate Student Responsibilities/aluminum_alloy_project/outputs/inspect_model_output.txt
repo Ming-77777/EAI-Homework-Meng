@@ -1,0 +1,37 @@
+Loaded object type: <class 'dict'>
+Keys: ['model', 'features', 'threshold', 'best_C']
+
+Model class: <class 'sklearn.linear_model._logistic.LogisticRegression'>
+Saved threshold: 0.6
+Saved best_C: 10.0
+Number of features: 53
+
+Top 20 features by absolute coefficient:
+temper_T62: -3.471697
+temper_T6: -2.010986
+temper_H131: -1.878330
+temper_T34: -1.395655
+temper_H343: -1.292999
+temper_NA: -1.217324
+temper_W: -0.905476
+temper_T4: -0.887790
+temper_T651: -0.829788
+temper_H38: -0.733504
+temper_H34: -0.708062
+temper_T351: -0.680427
+temper_T451: -0.651678
+temper_T8: 0.615120
+temper_T3: -0.342235
+temper_H121: -0.337976
+temper_H62: 0.266898
+temper_H18: -0.214128
+temper_T87: 0.195316
+temper_T64: -0.177023
+
+Example usage to load and predict (paste into Python):
+import joblib
+m = joblib.load('Graduate Student Responsibilities/aluminum_alloy_project/model.joblib')
+model = m['model'] if isinstance(m, dict) else m
+features = m.get('features', None)
+# prepare a DataFrame X_sample with same columns as 'features' and run:
+# probs = model.predict_proba(X_sample)[:,1]; preds = (probs >= m.get('threshold',0.5)).astype(int)
