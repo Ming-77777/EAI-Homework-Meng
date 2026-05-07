@@ -96,8 +96,6 @@ Troubleshooting
 - If download fails, open the URL in a browser to confirm access: https://archive.materialscloud.org/records/jxxnh-d0p49/files/property.csv?download=1
 - If installation fails on Windows due to execution policy, run PowerShell as administrator and allow script execution or use the CMD activation: `.\\.venv\\Scripts\\activate.bat`.
 
-Contact
-- For help reproducing results or modifying the pipeline, ask me and I can add visualization, hyperparameter search, or extended features.
 
 Dependencies (requirements)
 
