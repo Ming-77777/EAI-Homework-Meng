@@ -1,0 +1,30 @@
+Aluminum Alloy Pass/Fail Screening Summary
+==========================================
+
+Total cleaned samples: 420
+Class distribution (0=Fail,1=Pass): {0: 215, 1: 205}
+
+Label rule:
+- label_pass = 1 if YS >= 300 MPa else 0
+- Note: YS is not used as an input feature.
+
+Experiment comparison:
+- series+temper: precision=0.913, recall=0.700, f1=0.792, accuracy=0.825, best_C=1.0, threshold=0.580
+  split sizes: train=294, val=63, test=63
+- series+temper+UTS: precision=0.893, recall=0.833, f1=0.862, accuracy=0.873, best_C=0.1, threshold=0.560
+  split sizes: train=294, val=63, test=63
+
+Final selected setup:
+- Experiment: series+temper+UTS
+- Features: series, temper, UTS
+- best_C: 0.1
+- threshold: 0.560
+- Test precision/recall/f1/accuracy: 0.893/0.833/0.862/0.873
+
+Saved artifacts:
+- model.joblib
+- outputs/metrics_comparison.csv
+- outputs/confusion_matrix_final.png
+- outputs/top20_coefficients_final.png
+- outputs/final_classification_report.txt
+- outputs/summary.txt

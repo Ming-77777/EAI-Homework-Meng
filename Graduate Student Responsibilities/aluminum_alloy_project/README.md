@@ -2,8 +2,15 @@
 
 End-to-end code for the proposal: supervised learning (logistic regression) to classify aluminum alloy records as Pass/Fail (YS >= 300 MPa).
 
+Important modeling setup in this version:
+- `YS` is used only for label construction (`label_pass = 1 if YS >= 300`), not as an input feature.
+- Baseline input is fixed to `series + temper`.
+- `UTS` and `elongation` are optional extension features.
+- The script includes a built-in comparison experiment: `series + temper` vs `series + temper + UTS`.
+
 Files:
-- `train_eval.py`: download data, preprocess, train logistic regression, evaluate, save model.
+- `train_eval.py`: download data, preprocess, run experiments, train logistic regression, evaluate, save model and artifacts.
+- `inspect_model.py`: inspect `model.joblib` in a human-readable format.
 - `requirements.txt`: Python dependencies.
 
 Prerequisites
@@ -38,12 +45,52 @@ python "Graduate Student Responsibilities/aluminum_alloy_project/train_eval.py"
 
 What the script does
 - Downloads the CSV to `Graduate Student Responsibilities/aluminum_alloy_project/data/property.csv` if not present.
-- Preprocesses the data, creates the binary label (`YS >= 300 MPa` → Pass), one-hot-encodes categorical features, and trains a logistic regression baseline.
-- Prints evaluation metrics (precision, recall, F1) for the Pass class and a classification report.
-- Saves the trained model to `Graduate Student Responsibilities/aluminum_alloy_project/model.joblib`.
+- Cleans data and prints cleaned sample count and Pass/Fail class distribution.
+- Builds two experiment feature sets:
+	- Baseline: `series + temper`
+	- Comparison: `series + temper + UTS`
+- For each experiment:
+	- Performs train/validation/test split and prints split sizes.
+	- Runs a lightweight hyperparameter search for `C`.
+	- Tunes probability threshold on validation.
+	- Evaluates on test and computes precision, recall, F1, and accuracy.
+- Saves the final selected model (`model.joblib`) and report artifacts under `outputs/`.
 
 Reproducibility
-- Set a fixed random seed in `train_eval.py` if you require deterministic splits across runs. The script currently uses `random_state=42` for splitting.
+- The script uses `random_state=42` for splitting.
+- The final experiment is selected by validation F1 (to avoid test-set-based selection).
+
+Discussion
+- Adding `UTS` improves test F1 from 0.792 to 0.862, which suggests that additional mechanical-property information helps classification, while the baseline remains `series + temper` to preserve the early-screening setting.
+
+Output files
+
+After running `train_eval.py`, these files are generated:
+
+- `model.joblib`
+	- Saved model package including:
+		- `model`
+		- `features` (encoded feature columns)
+		- `selected_feature_names` (human-readable final feature set)
+		- `best_C`
+		- `threshold`
+		- `final_experiment`
+
+- `outputs/metrics_comparison.csv`
+	- Table of precision, recall, F1, accuracy (validation/test), split sizes, best `C`, and threshold for each experiment.
+
+- `outputs/confusion_matrix_final.png`
+	- Formal confusion matrix figure for the selected final experiment.
+
+- `outputs/top20_coefficients_final.png`
+	- Top-20 logistic-regression coefficient plot (by absolute magnitude), intended for model-level interpretation only.
+	- Coefficients indicate association direction/strength in this fitted model, not causal effects.
+
+- `outputs/final_classification_report.txt`
+	- Full scikit-learn classification report of final test predictions.
+
+- `outputs/summary.txt`
+	- Ready-to-copy summary for reports, including cleaned sample info, class distribution, experiment comparison, final selected feature set, best `C`, threshold, and key metrics.
 
 Troubleshooting
 - If download fails, open the URL in a browser to confirm access: https://archive.materialscloud.org/records/jxxnh-d0p49/files/property.csv?download=1
@@ -60,13 +107,14 @@ The project requires the following Python packages (also listed in `requirements
 - scikit-learn
 - requests
 - joblib
+- matplotlib
 
 You can install them via `requirements.txt` or directly with pip:
 
 ```bash
 pip install -r "Graduate Student Responsibilities/aluminum_alloy_project/requirements.txt"
 # or install directly
-pip install pandas scikit-learn requests joblib
+pip install pandas scikit-learn requests joblib matplotlib
 ```
 
 Note: The `requirements.txt` file is kept for convenience; its contents are duplicated here for clarity.
@@ -81,7 +129,7 @@ python "Graduate Student Responsibilities/aluminum_alloy_project/inspect_model.p
 ```
 
 What `inspect_model.py` shows:
-- The top-level keys in the saved object (e.g., `model`, `features`, `threshold`, `best_C`).
+- The top-level keys in the saved object (e.g., `model`, `features`, `selected_feature_names`, `threshold`, `best_C`, `final_experiment`).
 - The list of feature names and their count.
 - The saved probability threshold and chosen `C` value.
 - If the model is linear (has `coef_`), the script prints the top 20 features ranked by absolute coefficient value.

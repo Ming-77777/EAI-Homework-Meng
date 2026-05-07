@@ -1,32 +1,32 @@
 Loaded object type: <class 'dict'>
-Keys: ['model', 'features', 'threshold', 'best_C']
+Keys: ['model', 'features', 'threshold', 'best_C', 'final_experiment', 'selected_feature_names']
 
 Model class: <class 'sklearn.linear_model._logistic.LogisticRegression'>
-Saved threshold: 0.6
-Saved best_C: 10.0
-Number of features: 53
+Saved threshold: 0.56
+Saved best_C: 0.1
+Number of features: 50
 
 Top 20 features by absolute coefficient:
-temper_T62: -3.471697
-temper_T6: -2.010986
-temper_H131: -1.878330
-temper_T34: -1.395655
-temper_H343: -1.292999
-temper_NA: -1.217324
-temper_W: -0.905476
-temper_T4: -0.887790
-temper_T651: -0.829788
-temper_H38: -0.733504
-temper_H34: -0.708062
-temper_T351: -0.680427
-temper_T451: -0.651678
-temper_T8: 0.615120
-temper_T3: -0.342235
-temper_H121: -0.337976
-temper_H62: 0.266898
-temper_H18: -0.214128
-temper_T87: 0.195316
-temper_T64: -0.177023
+temper_T351: -0.640521
+temper_T62: -0.442865
+temper_T7451: 0.322833
+temper_T6: -0.255535
+temper_O: -0.225046
+temper_T4: -0.213243
+temper_T8: 0.206385
+temper_H131: -0.167570
+temper_T1: -0.154126
+temper_T451: -0.152524
+temper_H18: -0.112740
+temper_T73: 0.097479
+temper_T7351: 0.094764
+temper_T651: -0.087965
+temper_W: -0.084555
+temper_T34: -0.084461
+temper_H32: -0.083574
+temper_T7: 0.074414
+temper_T40: -0.068784
+temper_T74: 0.058819
 
 Example usage to load and predict (paste into Python):
 import joblib
