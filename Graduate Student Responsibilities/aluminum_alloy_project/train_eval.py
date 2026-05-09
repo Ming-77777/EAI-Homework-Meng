@@ -83,65 +83,44 @@ def load_and_prepare():
 
 
 def build_feature_matrix(df, feature_columns, include_uts=False, include_elongation=False):
-    series_col = feature_columns['series']
-    temper_col = feature_columns['temper']
-    uts_col = feature_columns['uts']
-    elong_col = feature_columns['elongation']
+    series_col, temper_col = feature_columns['series'], feature_columns['temper']
+    uts_col, elong_col = feature_columns['uts'], feature_columns['elongation']
 
-    parts = []
-    # Fixed baseline: series + temper
-    X_cat = pd.get_dummies(df[[series_col, temper_col]].fillna('NA'), dummy_na=False)
-    parts.append(X_cat)
-
+    parts = [pd.get_dummies(df[[series_col, temper_col]].fillna('NA'), dummy_na=False)]
     selected = ['series', 'temper']
 
-    if include_uts and uts_col is not None:
+    if include_uts and uts_col:
         x_uts = df[[uts_col]].copy()
-        if x_uts[uts_col].isnull().any():
-            x_uts[uts_col] = x_uts[uts_col].fillna(x_uts[uts_col].median())
+        x_uts[uts_col] = x_uts[uts_col].fillna(x_uts[uts_col].median())
         parts.append(x_uts)
         selected.append('UTS')
 
-    if include_elongation and elong_col is not None:
+    if include_elongation and elong_col:
         x_elong = df[[elong_col]].copy()
-        if x_elong[elong_col].isnull().any():
-            x_elong[elong_col] = x_elong[elong_col].fillna(x_elong[elong_col].median())
+        x_elong[elong_col] = x_elong[elong_col].fillna(x_elong[elong_col].median())
         parts.append(x_elong)
         selected.append('elongation')
 
-    X = pd.concat(parts, axis=1)
-    y = df['label_pass']
-    return X, y, selected
+    return pd.concat(parts, axis=1), df['label_pass'], selected
 
 
 def tune_threshold(y_true, y_scores, recall_target=0.75):
-    best_thresh = 0.5
-    best_prec = 0.0
-    best_f1 = 0.0
-    threshs = np.linspace(0.01, 0.99, 99)
-    for t in threshs:
+    results = []
+    for t in np.linspace(0.01, 0.99, 99):
         y_pred = (y_scores >= t).astype(int)
         prec = precision_score(y_true, y_pred, zero_division=0)
         rec = recall_score(y_true, y_pred, zero_division=0)
         f1 = f1_score(y_true, y_pred, zero_division=0)
-        # prefer thresholds meeting recall target with highest precision
-        if rec >= recall_target and prec > best_prec:
-            best_prec = prec
-            best_thresh = t
-            best_f1 = f1
-    if best_prec > 0:
-        return best_thresh, best_prec, best_f1
-    # otherwise maximize f1
-    best_f1 = -1
-    for t in threshs:
-        y_pred = (y_scores >= t).astype(int)
-        f1 = f1_score(y_true, y_pred, zero_division=0)
-        if f1 > best_f1:
-            best_f1 = f1
-            best_thresh = t
-    # compute precision at best_f1
-    best_prec = precision_score(y_true, (y_scores >= best_thresh).astype(int), zero_division=0)
-    return best_thresh, best_prec, best_f1
+        results.append((t, prec, rec, f1))
+    
+    # Prefer threshold meeting recall target with highest precision
+    meeting_target = [r for r in results if r[2] >= recall_target]
+    if meeting_target:
+        t, prec, _, f1 = max(meeting_target, key=lambda x: x[1])
+    else:
+        t, prec, _, f1 = max(results, key=lambda x: x[3])
+    
+    return t, prec, f1
 
 
 def split_data(X, y):
@@ -156,49 +135,24 @@ def train_and_eval_single_experiment(name, X, y):
 
     print(f'[{name}] Splits: train={len(X_train)}, val={len(X_val)}, test={len(X_test)}')
 
-    # lightweight hyperparameter search (C) using validation
-    Cs = [0.01, 0.1, 1.0, 10.0]
-    best_C = Cs[0]
-    best_score = -1
-    best_model = None
-    for C in Cs:
-        try:
-            clf = LogisticRegression(max_iter=2000, class_weight='balanced', solver='liblinear', C=C)
-            clf.fit(X_train, y_train)
-            y_val_pred = clf.predict(X_val)
-            score = f1_score(y_val, y_val_pred, zero_division=0)
-            print(f'[{name}] C={C} val F1={score:.3f}')
-            if score > best_score:
-                best_score = score
-                best_C = C
-                best_model = clf
-        except Exception as e:
-            print('Error training with C=', C, e)
+    results = []
+    for C in [0.01, 0.1, 1.0, 10.0]:
+        clf = LogisticRegression(max_iter=2000, class_weight='balanced', solver='liblinear', C=C)
+        clf.fit(X_train, y_train)
+        score = f1_score(y_val, clf.predict(X_val), zero_division=0)
+        print(f'[{name}] C={C} val F1={score:.3f}')
+        results.append((C, score, clf))
+    
+    best_C, _, best_model = max(results, key=lambda x: x[1])
 
-    if best_model is None:
-        print('Falling back to default model training')
-        best_C = 1.0
-        best_model = LogisticRegression(max_iter=2000, class_weight='balanced', solver='liblinear', C=best_C)
-        best_model.fit(X_train, y_train)
+    val_scores = best_model.predict_proba(X_val)[:, 1]
+    thresh, prec_val, f1_val = tune_threshold(y_val.values, val_scores, recall_target=0.75)
+    print(f'[{name}] Selected threshold on val: {thresh:.3f} (prec={prec_val:.3f}, f1={f1_val:.3f})')
 
-    # tune threshold on validation using predicted probabilities
-    try:
-        val_scores = best_model.predict_proba(X_val)[:, 1]
-        thresh, prec_val, f1_val = tune_threshold(y_val.values, val_scores, recall_target=0.75)
-        print(f'[{name}] Selected threshold on val: {thresh:.3f} (prec={prec_val:.3f}, f1={f1_val:.3f})')
-    except Exception as e:
-        print('Could not tune threshold on validation:', e)
-        thresh = 0.5
-
-    # retrain final model on train+val
-    X_trainval = pd.concat([X_train, X_val], axis=0)
-    y_trainval = pd.concat([y_train, y_val], axis=0)
     final_clf = LogisticRegression(max_iter=2000, class_weight='balanced', solver='liblinear', C=best_C)
-    final_clf.fit(X_trainval, y_trainval)
+    final_clf.fit(pd.concat([X_train, X_val]), pd.concat([y_train, y_val]))
 
-    # evaluate on test
     y_test_proba = final_clf.predict_proba(X_test)[:, 1]
-    y_test_pred_default = (y_test_proba >= 0.5).astype(int)
     y_test_pred = (y_test_proba >= thresh).astype(int)
 
     def report(y_true, y_pred, label, exp_name):
@@ -215,9 +169,6 @@ def train_and_eval_single_experiment(name, X, y):
             'f1': float(f1),
             'accuracy': float(acc),
         }
-
-    print(f'\n[{name}] Test performance with default threshold 0.5:')
-    default_metrics = report(y_test, y_test_pred_default, 'Default(0.5)', name)
 
     print(f'\n[{name}] Test performance with tuned threshold {thresh:.3f}:')
     tuned_metrics = report(y_test, y_test_pred, f'Tuned({thresh:.3f})', name)
@@ -245,7 +196,6 @@ def train_and_eval_single_experiment(name, X, y):
         'y_test_pred': y_test_pred,
         'confusion_matrix': confusion_matrix(y_test, y_test_pred),
         'metrics_test_tuned': tuned_metrics,
-        'metrics_test_default': default_metrics,
         'metrics_validation_tuned': val_metrics,
         'classification_report': classification_report(y_test, y_test_pred, zero_division=0),
     }
@@ -271,16 +221,14 @@ def save_confusion_matrix(cm, path):
 def save_top_coefficients(model, features, path, top_n=20):
     if not hasattr(model, 'coef_'):
         return
-    coefs = model.coef_[0]
-    feat_coef = sorted(zip(features, coefs), key=lambda x: abs(x[1]), reverse=True)[:top_n]
-    names = [x[0] for x in feat_coef][::-1]
-    values = [x[1] for x in feat_coef][::-1]
+    feat_coef = sorted(zip(features, model.coef_[0]), key=lambda x: abs(x[1]), reverse=True)[:top_n]
+    names, values = zip(*feat_coef[::-1])
 
     fig, ax = plt.subplots(figsize=(9, 7))
     colors = ['#2f6690' if v >= 0 else '#d1495b' for v in values]
     ax.barh(names, values, color=colors)
-    ax.set_title(f'Top {top_n} Logistic Regression Coefficients (abs-ranked)')
-    ax.set_xlabel('Coefficient Value')
+    ax.set_title(f'Top {top_n} Coefficients')
+    ax.set_xlabel('Value')
     fig.tight_layout()
     fig.savefig(path, dpi=180)
     plt.close(fig)
@@ -360,34 +308,20 @@ def main():
     download_csv()
     df, feature_columns = load_and_prepare()
 
-    # Compare two setups required by the report:
-    # 1) baseline: series + temper
-    # 2) baseline + UTS
     experiments = []
+    configs = [
+        ('series+temper', False),
+        ('series+temper+UTS', True),
+    ]
+    
+    for exp_name, include_uts in configs:
+        X, y, selected = build_feature_matrix(df, feature_columns, include_uts=include_uts)
+        if len(X) < 20:
+            print(f'Warning: small dataset: {len(X)}')
+        exp = train_and_eval_single_experiment(exp_name, X, y)
+        exp['selected_feature_names'] = selected
+        experiments.append(exp)
 
-    X_base, y, selected_base = build_feature_matrix(
-        df,
-        feature_columns,
-        include_uts=False,
-        include_elongation=False,
-    )
-    if len(X_base) < 20:
-        print('Warning: very small dataset after cleaning:', len(X_base))
-    exp_base = train_and_eval_single_experiment('series+temper', X_base, y)
-    exp_base['selected_feature_names'] = selected_base
-    experiments.append(exp_base)
-
-    X_uts, y, selected_uts = build_feature_matrix(
-        df,
-        feature_columns,
-        include_uts=True,
-        include_elongation=False,
-    )
-    exp_uts = train_and_eval_single_experiment('series+temper+UTS', X_uts, y)
-    exp_uts['selected_feature_names'] = selected_uts
-    experiments.append(exp_uts)
-
-    # Select final setup by tuned validation F1 to avoid test-set selection bias.
     final_exp = max(experiments, key=lambda e: e['metrics_validation_tuned']['f1'])
 
     model_path = ROOT / 'model.joblib'
@@ -402,14 +336,13 @@ def main():
         },
         model_path,
     )
-    print('Saved final model to', model_path)
-
+    print('Saved model to', model_path)
     save_metrics_table(experiments, OUTPUT_DIR / 'metrics_comparison.csv')
     save_confusion_matrix(final_exp['confusion_matrix'], OUTPUT_DIR / 'confusion_matrix_final.png')
-    save_top_coefficients(final_exp['model'], final_exp['features'], OUTPUT_DIR / 'top20_coefficients_final.png', top_n=20)
+    save_top_coefficients(final_exp['model'], final_exp['features'], OUTPUT_DIR / 'top20_coefficients_final.png')
     (OUTPUT_DIR / 'final_classification_report.txt').write_text(final_exp['classification_report'], encoding='utf-8')
     save_summary(df, feature_columns, experiments, final_exp, OUTPUT_DIR / 'summary.txt')
-    print('Saved results to', OUTPUT_DIR)
+    print('Results saved to', OUTPUT_DIR)
 
 
 if __name__ == '__main__':
