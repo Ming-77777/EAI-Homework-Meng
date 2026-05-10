@@ -2,6 +2,13 @@
 
 Logistic regression classifier for aluminum alloy Pass/Fail prediction (YS >= 300 MPa).
 
+## Data Source
+
+The dataset comes from Materials Cloud:
+https://archive.materialscloud.org/records/jxxnh-d0p49/files/property.csv?download=1
+
+The raw CSV is saved locally at `data/property.csv` after running the training script.
+
 ## Setup
 
 Prerequisites: Python 3.8+, pip
@@ -31,12 +38,14 @@ This downloads data, trains a model, and saves:
 - `outputs/metrics_comparison.csv`: experiment metrics
 - `outputs/confusion_matrix_final.png`: confusion matrix
 - `outputs/top20_coefficients_final.png`: coefficient plot
+- `outputs/final_classification_report.txt`: final test classification report
 - `outputs/summary.txt`: full results summary
 
 ## Model Details
 
 - **Label**: YS >= 300 MPa (Pass/Fail)
 - **Features**: series + temper (baseline), optionally +UTS
+- **Important**: YS is not used as an input feature; it is only used to construct the Pass/Fail label. This avoids label leakage.
 - **Method**: Logistic regression with C hyperparameter tuning
 - **Validation**: 70/15/15 train/val/test split with stratification
 - **Threshold**: tuned on validation set for recall >= 0.75
